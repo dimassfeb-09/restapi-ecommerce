@@ -1,11 +1,11 @@
-package response
+package helpers
 
 import "github.com/dimassfeb-09/restapi-ecommerce.git/entity/web"
 
-func ToErrorResponse(code int, status string, desc any) *web.ErrorResponse {
+func ToErrorResponse(code int, status string, msg any) *web.ErrorResponse {
 	return &web.ErrorResponse{
-		Code:        code,
-		Status:      status,
-		Description: desc,
+		Code:    code,
+		Status:  status,
+		Message: msg,
 	}
 }
