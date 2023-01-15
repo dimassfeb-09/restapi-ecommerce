@@ -1,13 +1,14 @@
 package web
 
 type WebResponse struct {
-	Code   int    `json:"code"`
-	Status string `json:"status"`
-	Data   any    `json:"data"`
+	Code    int    `json:"code"`
+	Status  string `json:"status"`
+	Message string `json:"message"`
+	Data    any    `json:"data"`
 }
 
 type ErrorResponse struct {
-	Code        int    `json:"code"`
-	Status      string `json:"status"`
-	Description any    `json:"description"`
+	Code    int    `json:"code"`
+	Status  string `json:"status"`
+	Message any    `json:"message"`
 }

@@ -1,6 +1,6 @@
-package domain
+package response
 
-type City struct {
+type CityResponse struct {
 	ID   int    `json:"id"`
 	Name string `json:"name"`
 }

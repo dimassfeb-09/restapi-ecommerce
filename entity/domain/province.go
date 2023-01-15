@@ -1,6 +1,6 @@
 package domain
 
-type City struct {
+type Province struct {
 	ID   int    `json:"id"`
 	Name string `json:"name"`
 }
