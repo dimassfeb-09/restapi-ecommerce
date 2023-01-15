@@ -100,9 +100,9 @@ func (u *UserRepositoryImpl) UpdateUser(ctx context.Context, DB *sql.Tx, users *
 func (u *UserRepositoryImpl) DeleteUser(ctx context.Context, DB *sql.Tx, userId int) error {
 	if _, err := DB.ExecContext(ctx, "DELETE FROM users WHERE id = ?", userId); err != nil {
 		return err
+	} else {
+		return nil
 	}
-
-	return nil
 }
 
 func (u *UserRepositoryImpl) FindAll(ctx context.Context, DB *sql.DB) ([]*domain.Users, error) {

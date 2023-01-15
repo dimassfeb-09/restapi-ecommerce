@@ -73,7 +73,7 @@ func (u *UserServiceImpl) UpdateUser(ctx context.Context, updateReq *request.Upd
 	}
 	defer helpers.RollbackCommit(tx)
 
-	if userById, err := u.UserRepository.FindByIdUser(ctx, u.DB, updateReq.Id); err != nil {
+	if userById, err := u.UserRepository.FindByIdUser(ctx, u.DB, updateReq.ID); err != nil {
 		return nil, exception.ToErrorMsg(err.Error(), exception.ErrorNotFound)
 	} else if updateReq.Username != userById.Username {
 		if isRegistered, _ := u.UserRepository.FindByUsername(ctx, u.DB, updateReq.Username); isRegistered == true {
@@ -83,7 +83,7 @@ func (u *UserServiceImpl) UpdateUser(ctx context.Context, updateReq *request.Upd
 	}
 
 	user := &domain.Users{
-		ID:       updateReq.Id,
+		ID:       updateReq.ID,
 		Name:     updateReq.Name,
 		Username: updateReq.Username,
 		Password: updateReq.Password,

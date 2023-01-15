@@ -42,6 +42,7 @@ func (u *UserControllerImpl) CreateUser(c *gin.Context) {
 	if msgErr := helpers.ValidatorRequest(user); msgErr != nil {
 		msg := exception.ToErrorMsg(msgErr[0], exception.BadRequest)
 		exception.ErrorHandler(c, msg)
+		return
 	}
 
 	validate := validator.New()
@@ -60,7 +61,7 @@ func (u *UserControllerImpl) CreateUser(c *gin.Context) {
 		exception.ErrorHandler(c, msg)
 		return
 	} else { // if success
-		c.JSON(http.StatusOK, helpers.ToWebResponse(http.StatusOK, "OK", createResponse))
+		c.JSON(http.StatusOK, helpers.ToWebResponse(http.StatusOK, "OK", fmt.Sprintf("Success Created Data with ID-%d", createResponse.ID), createResponse))
 		return
 	}
 
@@ -83,13 +84,14 @@ func (u *UserControllerImpl) UpdateUser(c *gin.Context) {
 		exception.ErrorHandler(c, msg)
 	}
 
-	user.Id = dataId
+	user.ID = dataId
 	if updateUser, err := u.UserService.UpdateUser(c.Request.Context(), user); err != nil {
 		msg := exception.ToErrorMsg(err.Msg, err.Error)
 		exception.ErrorHandler(c, msg)
 		return
 	} else {
-		c.JSON(http.StatusOK, helpers.ToWebResponse(http.StatusOK, "OK", updateUser))
+		c.JSON(http.StatusOK, helpers.ToWebResponse(http.StatusOK, "OK", fmt.Sprintf("Success Update Data with ID-%d", user.ID), updateUser))
+		return
 	}
 
 }

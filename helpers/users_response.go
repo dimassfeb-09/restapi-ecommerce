@@ -1,4 +1,4 @@
-package response
+package helpers
 
 import (
 	"github.com/dimassfeb-09/restapi-ecommerce.git/entity/domain"
@@ -7,7 +7,7 @@ import (
 
 func ToUserResponse(user *domain.Users) *response.UserResponse {
 	return &response.UserResponse{
-		Id:        user.ID,
+		ID:        user.ID,
 		Name:      user.Name,
 		Username:  user.Username,
 		Balance:   user.Balance,
