@@ -10,10 +10,11 @@ import (
 type UserRepository interface {
 	CreateUser(ctx context.Context, DB *sql.Tx, users *domain.Users) (*domain.Users, error)
 	FindByIdUser(ctx context.Context, DB *sql.DB, userId int) (*domain.Users, error)
-	FindByUsername(ctx context.Context, DB *sql.DB, username string) (bool, error)
+	FindByUsername(ctx context.Context, DB *sql.DB, username string) (*domain.Users, error)
 	UpdateUser(ctx context.Context, DB *sql.Tx, users *domain.Users) (*domain.Users, error)
 	DeleteUser(ctx context.Context, DB *sql.Tx, userId int) error
 	FindAll(ctx context.Context, DB *sql.DB) ([]*domain.Users, error)
+	ChangePassword(ctx context.Context, db *sql.Tx, users *domain.Users) (bool, error)
 }
 
 type UserRepositoryImpl struct {
@@ -71,19 +72,24 @@ func (u *UserRepositoryImpl) FindByIdUser(ctx context.Context, DB *sql.DB, userI
 	}
 }
 
-func (u *UserRepositoryImpl) FindByUsername(ctx context.Context, DB *sql.DB, username string) (bool, error) {
-	rows, err := DB.QueryContext(ctx, "SELECT username FROM users WHERE username = ?", username)
+func (u *UserRepositoryImpl) FindByUsername(ctx context.Context, DB *sql.DB, username string) (*domain.Users, error) {
+	rows, err := DB.QueryContext(ctx, "SELECT id, username FROM users WHERE username = ?", username)
 	if err != nil {
-		return false, err
+		return nil, err
 	}
 	defer rows.Close()
 
-	if !rows.Next() {
+	var user domain.Users
+	if rows.Next() {
+		if err := rows.Scan(&user.ID, &user.Username); err != nil {
+			return nil, err
+		}
+		return &user, nil
+	} else {
 		errMsg := fmt.Errorf("Username %s tidak ditemukan.", username)
-		return false, errMsg
+		return nil, errMsg
 	}
 
-	return true, nil
 }
 
 func (u *UserRepositoryImpl) UpdateUser(ctx context.Context, DB *sql.Tx, users *domain.Users) (*domain.Users, error) {
@@ -123,4 +129,12 @@ func (u *UserRepositoryImpl) FindAll(ctx context.Context, DB *sql.DB) ([]*domain
 	}
 
 	return users, nil
+}
+
+func (u *UserRepositoryImpl) ChangePassword(ctx context.Context, db *sql.Tx, users *domain.Users) (bool, error) {
+	if _, err := db.ExecContext(ctx, "UPDATE users SET password = ? WHERE id = ?", &users.Password, &users.ID); err != nil {
+		return false, err
+	} else {
+		return true, nil
+	}
 }

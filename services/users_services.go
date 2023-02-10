@@ -1,4 +1,4 @@
-package users
+package services
 
 import (
 	"context"
@@ -20,6 +20,7 @@ type UserServices interface {
 	DeleteUser(ctx context.Context, userId int) *exception.ErrorMsg
 	FindAllUser(ctx context.Context) ([]*response.UserResponse, *exception.ErrorMsg)
 	ChangePassword(ctx context.Context, req *request.ChangePasswordRequest) *exception.ErrorMsg
+	FindByUsername(ctx context.Context, username string) (bool, *exception.ErrorMsg)
 }
 
 type UserServiceImpl struct {
@@ -136,7 +137,6 @@ func (u *UserServiceImpl) ChangePassword(ctx context.Context, req *request.Chang
 	if findById, err := u.UserRepository.FindByIdUser(ctx, u.DB, req.ID); err != nil {
 		return exception.ToErrorMsg("Data User not found", err)
 	} else {
-		fmt.Println(fmt.Sprintf("%s %s", findById.Password, req.PreviousPassword))
 		if findById.Password != req.PreviousPassword {
 			return exception.ToErrorMsg("The current password does not match.", exception.BadRequest)
 		}
@@ -160,4 +160,12 @@ func (u *UserServiceImpl) ChangePassword(ctx context.Context, req *request.Chang
 			return exception.ToErrorMsg(err.Error(), err)
 		}
 	}
+}
+
+func (u *UserServiceImpl) FindByUsername(ctx context.Context, username string) (bool, *exception.ErrorMsg) {
+	findByUsername, err := u.UserRepository.FindByUsername(ctx, u.DB, username)
+	if findByUsername == nil {
+		return false, exception.ToErrorMsg(err.Error(), err)
+	}
+	return true, nil
 }
