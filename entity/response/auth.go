@@ -1,5 +1,7 @@
 package response
 
+import "github.com/dimassfeb-09/restapi-ecommerce.git/entity/domain"
+
 type AuthLogin struct {
 	ID       int    `json:"id"`
 	Username string `json:"username"`
@@ -12,6 +14,6 @@ type AuthLoginResponse struct {
 	Token    string `json:"token"`
 }
 
-func ToAuthLoginResponse(response *AuthLoginResponse) *AuthLoginResponse {
-	return &AuthLoginResponse{ID: response.ID, Username: response.Username, Token: response.Token}
+func ToAuthLoginResponse(response *domain.AuthUser) *AuthLoginResponse {
+	return &AuthLoginResponse{ID: response.ID, Username: response.Username}
 }
