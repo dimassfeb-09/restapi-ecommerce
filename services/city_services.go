@@ -1,4 +1,4 @@
-package services
+package city
 
 import (
 	"context"
@@ -10,50 +10,56 @@ import (
 	"github.com/dimassfeb-09/restapi-ecommerce.git/exception"
 	"github.com/dimassfeb-09/restapi-ecommerce.git/helpers"
 	"github.com/dimassfeb-09/restapi-ecommerce.git/repository"
+	"github.com/dimassfeb-09/restapi-ecommerce.git/usecases/province"
 )
 
 type CityServices interface {
 	CreateCity(ctx context.Context, city *request.CreateCityRequest) (*response.CityResponse, *exception.ErrorMsg)
-	FindByIdCity(ctx context.Context, cityId int) (*response.CityResponse, *exception.ErrorMsg)
 	UpdateCity(ctx context.Context, updateReq *request.UpdateCityRequest) (*response.CityResponse, *exception.ErrorMsg)
 	DeleteCity(ctx context.Context, cityId int) *exception.ErrorMsg
+	FindCityByID(ctx context.Context, cityId int) (*response.CityResponse, *exception.ErrorMsg)
+	FindCityByProvinceID(ctx context.Context, provinceId int) (bool, *exception.ErrorMsg)
 	FindAllCity(ctx context.Context) ([]*response.CityResponse, *exception.ErrorMsg)
 }
 
 type CityServicesImpl struct {
-	DB             *sql.DB
-	CityRepository repository.CityRepository
+	DB              *sql.DB
+	CityRepository  repository.CityRepository
+	ProvinceService province.ProvinceService
 }
 
-func NewCityServicesImpl(DB *sql.DB, cityRepository repository.CityRepository) *CityServicesImpl {
-	return &CityServicesImpl{CityRepository: cityRepository, DB: DB}
+func NewCityServicesImpl(DB *sql.DB, cityRepository repository.CityRepository, provinceRepository repository.ProvinceRepository) CityServices {
+	return &CityServicesImpl{DB: DB, CityRepository: cityRepository, ProvinceService: &province.ProvinceServiceImpl{
+		DB:                 DB,
+		ProvinceRepository: provinceRepository,
+	}}
 }
 
-func (c *CityServicesImpl) CreateCity(ctx context.Context, cityReqCreate *request.CreateCityRequest) (*response.CityResponse, *exception.ErrorMsg) {
+func (c *CityServicesImpl) CreateCity(ctx context.Context, createReq *request.CreateCityRequest) (*response.CityResponse, *exception.ErrorMsg) {
 	tx, err := c.DB.Begin()
 	if err != nil {
 		return nil, exception.ToErrorMsg(err.Error(), exception.InternalServerError)
 	}
 	defer helpers.RollbackCommit(tx)
 
-	if findCityName, _ := c.CityRepository.FindCityByName(ctx, c.DB, cityReqCreate.Name); findCityName.Name == cityReqCreate.Name {
-		msg := fmt.Sprintf("City with Name %s already exists.", cityReqCreate.Name)
+	if len(createReq.Name) < 3 || len(createReq.Name) > 20 {
+		return nil, exception.ToErrorMsg("Min length name 3 character, Max 20 character.", exception.BadRequest)
+	}
+
+	if findCityByName, _ := c.CityRepository.FindCityByName(ctx, c.DB, createReq.Name); findCityByName != nil {
+		msg := fmt.Sprintf("City with name %s already exists.", createReq.Name)
 		return nil, exception.ToErrorMsg(msg, exception.BadRequest)
 	}
 
-	if city, err := c.CityRepository.CreateCity(ctx, tx, cityReqCreate.Name); err != nil {
+	if findProvincebyId, _ := c.ProvinceService.FindProvinceById(ctx, createReq.ProvinceID); findProvincebyId == nil {
+		msg := fmt.Sprintf("province_id with ID-%d Not Found.", createReq.ProvinceID)
+		return nil, exception.ToErrorMsg(msg, exception.BadRequest)
+	}
+
+	if city, err := c.CityRepository.CreateCity(ctx, tx, createReq.Name, createReq.ProvinceID); err != nil {
 		return nil, exception.ToErrorMsg(err.Error(), exception.InternalServerError)
 	} else {
-		return helpers.ToCityResponse(city), nil
-	}
-}
-
-func (c *CityServicesImpl) FindByIdCity(ctx context.Context, cityId int) (*response.CityResponse, *exception.ErrorMsg) {
-	if city, err := c.CityRepository.FindCityById(ctx, c.DB, cityId); err != nil {
-		msg := fmt.Sprintf("City with ID-%d Not Found.", cityId)
-		return nil, exception.ToErrorMsg(msg, err)
-	} else {
-		return helpers.ToCityResponse(city), nil
+		return response.ToCityResponse(city), nil
 	}
 }
 
@@ -63,6 +69,10 @@ func (c *CityServicesImpl) UpdateCity(ctx context.Context, updateReq *request.Up
 		return nil, exception.ToErrorMsg(err.Error(), err)
 	}
 	defer helpers.RollbackCommit(tx)
+
+	if len(updateReq.Name) < 3 || len(updateReq.Name) > 20 {
+		return nil, exception.ToErrorMsg("Min length name 3 character, Max 20 character.", exception.BadRequest)
+	}
 
 	if _, err := c.CityRepository.FindCityById(ctx, c.DB, updateReq.ID); err != nil {
 		msg := fmt.Sprintf("Data with ID-%d Not Found", updateReq.ID)
@@ -79,15 +89,21 @@ func (c *CityServicesImpl) UpdateCity(ctx context.Context, updateReq *request.Up
 		}
 	}
 
+	//if _, errProv := c.ProvinceService.FindProvinceById(ctx, updateReq.ProvinceID); errProv != nil {
+	//	msg := fmt.Sprintf("province_id with ID-%d Not Found.", updateReq.ProvinceID)
+	//	return nil, exception.ToErrorMsg(msg, exception.BadRequest)
+	//}
+
 	city := &domain.City{
-		ID:   updateReq.ID,
-		Name: updateReq.Name,
+		ID:         updateReq.ID,
+		Name:       updateReq.Name,
+		ProvinceID: updateReq.ProvinceID,
 	}
 
 	if updateCity, err := c.CityRepository.UpdateCity(ctx, tx, city); err != nil {
 		return nil, exception.ToErrorMsg(err.Error(), err)
 	} else {
-		return helpers.ToCityResponse(updateCity), nil
+		return response.ToCityResponse(updateCity), nil
 	}
 }
 
@@ -98,7 +114,7 @@ func (c *CityServicesImpl) DeleteCity(ctx context.Context, cityId int) *exceptio
 	}
 	defer helpers.RollbackCommit(tx)
 
-	if cityById, _ := c.CityRepository.FindCityById(ctx, c.DB, cityId); cityById != nil {
+	if cityById, _ := c.CityRepository.FindCityById(ctx, c.DB, cityId); cityById == nil {
 		msg := fmt.Sprintf("Kota dengan ID %d tidak ditemukan", cityId)
 		return exception.ToErrorMsg(msg, exception.BadRequest)
 	} else {
@@ -110,10 +126,28 @@ func (c *CityServicesImpl) DeleteCity(ctx context.Context, cityId int) *exceptio
 
 }
 
+func (c *CityServicesImpl) FindCityByID(ctx context.Context, cityId int) (*response.CityResponse, *exception.ErrorMsg) {
+	if city, err := c.CityRepository.FindCityById(ctx, c.DB, cityId); err != nil {
+		msg := fmt.Sprintf("City with ID-%d Not Found.", cityId)
+		return nil, exception.ToErrorMsg(msg, err)
+	} else {
+		return response.ToCityResponse(city), nil
+	}
+}
+
+func (c *CityServicesImpl) FindCityByProvinceID(ctx context.Context, provinceId int) (bool, *exception.ErrorMsg) {
+	isValid, err := c.CityRepository.FindCityByProvinceID(ctx, c.DB, provinceId)
+	if isValid {
+		return true, nil
+	}
+
+	return false, exception.ToErrorMsg(err.Error(), exception.InternalServerError)
+}
+
 func (c *CityServicesImpl) FindAllCity(ctx context.Context) ([]*response.CityResponse, *exception.ErrorMsg) {
 	if cities, err := c.CityRepository.FindAllCity(ctx, c.DB); err != nil {
 		return nil, exception.ToErrorMsg(err.Error(), exception.InternalServerError)
 	} else {
-		return helpers.ToCityResponses(cities), nil
+		return response.ToCityResponses(cities), nil
 	}
 }

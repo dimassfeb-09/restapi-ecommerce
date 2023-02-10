@@ -1,4 +1,4 @@
-package services
+package users
 
 import (
 	"context"
@@ -16,9 +16,10 @@ import (
 type UserServices interface {
 	CreateUser(ctx context.Context, users *request.CreateUserRequest) (*response.UserResponse, *exception.ErrorMsg)
 	FindByIdUser(ctx context.Context, userId int) (*response.UserResponse, *exception.ErrorMsg)
-	UpdateUser(ctx context.Context, updateReq *request.UpdateUserRequest) (*response.UserResponse, *exception.ErrorMsg)
+	UpdateUser(ctx context.Context, req *request.UpdateUserRequest) (*response.UserResponse, *exception.ErrorMsg)
 	DeleteUser(ctx context.Context, userId int) *exception.ErrorMsg
 	FindAllUser(ctx context.Context) ([]*response.UserResponse, *exception.ErrorMsg)
+	ChangePassword(ctx context.Context, req *request.ChangePasswordRequest) *exception.ErrorMsg
 }
 
 type UserServiceImpl struct {
@@ -37,8 +38,7 @@ func (u *UserServiceImpl) CreateUser(ctx context.Context, req *request.CreateUse
 	}
 	defer helpers.RollbackCommit(tx)
 
-	// Check Username Data Registered
-	if isRegistered, _ := u.UserRepository.FindByUsername(ctx, u.DB, req.Username); isRegistered == true {
+	if findByUsername, _ := u.UserRepository.FindByUsername(ctx, u.DB, req.Username); findByUsername != nil {
 		errMsg := fmt.Sprintf("Username dengan %s sudah digunakan.", req.Username)
 		return nil, exception.ToErrorMsg(errMsg, exception.BadRequest)
 	}
@@ -53,7 +53,7 @@ func (u *UserServiceImpl) CreateUser(ctx context.Context, req *request.CreateUse
 		return nil, exception.ToErrorMsg(err.Error(), err)
 	} else {
 		createUser.CreatedAt = time.Now()
-		return helpers.ToUserResponse(createUser), nil
+		return response.ToUserResponse(createUser), nil
 	}
 }
 
@@ -62,38 +62,38 @@ func (u *UserServiceImpl) FindByIdUser(ctx context.Context, userId int) (*respon
 	if user, err := u.UserRepository.FindByIdUser(ctx, db, userId); err != nil {
 		return nil, exception.ToErrorMsg(err.Error(), exception.ErrorNotFound)
 	} else {
-		return helpers.ToUserResponse(user), nil
+		return response.ToUserResponse(user), nil
 	}
 }
 
-func (u *UserServiceImpl) UpdateUser(ctx context.Context, updateReq *request.UpdateUserRequest) (*response.UserResponse, *exception.ErrorMsg) {
+func (u *UserServiceImpl) UpdateUser(ctx context.Context, req *request.UpdateUserRequest) (*response.UserResponse, *exception.ErrorMsg) {
 	tx, err := u.DB.Begin()
 	if err != nil {
 		return nil, exception.ToErrorMsg(err.Error(), err)
 	}
 	defer helpers.RollbackCommit(tx)
 
-	if userById, err := u.UserRepository.FindByIdUser(ctx, u.DB, updateReq.ID); err != nil {
+	if userById, err := u.UserRepository.FindByIdUser(ctx, u.DB, req.ID); err != nil {
 		return nil, exception.ToErrorMsg(err.Error(), exception.ErrorNotFound)
-	} else if updateReq.Username != userById.Username {
-		if isRegistered, _ := u.UserRepository.FindByUsername(ctx, u.DB, updateReq.Username); isRegistered == true {
-			errMsg := fmt.Sprintf("Username dengan %s sudah digunakan.", updateReq.Username)
+	} else if req.Username != userById.Username {
+		if findByUsername, _ := u.UserRepository.FindByUsername(ctx, u.DB, req.Username); findByUsername != nil {
+			errMsg := fmt.Sprintf("Username dengan %s sudah digunakan.", req.Username)
 			return nil, exception.ToErrorMsg(errMsg, exception.BadRequest)
 		}
 	}
 
 	user := &domain.Users{
-		ID:       updateReq.ID,
-		Name:     updateReq.Name,
-		Username: updateReq.Username,
-		Password: updateReq.Password,
-		Balance:  updateReq.Balance,
+		ID:       req.ID,
+		Name:     req.Name,
+		Username: req.Username,
+		Password: req.Password,
+		Balance:  req.Balance,
 	}
 
 	if updateUser, err := u.UserRepository.UpdateUser(ctx, tx, user); err != nil {
 		return nil, exception.ToErrorMsg(err.Error(), err)
 	} else {
-		return helpers.ToUserResponse(updateUser), nil
+		return response.ToUserResponse(updateUser), nil
 	}
 }
 
@@ -120,7 +120,44 @@ func (u *UserServiceImpl) FindAllUser(ctx context.Context) ([]*response.UserResp
 	if user, err := u.UserRepository.FindAll(ctx, u.DB); err != nil {
 		return nil, exception.ToErrorMsg(err.Error(), err)
 	} else {
-		userResponses := helpers.ToUserResponses(user)
+		userResponses := response.ToUserResponses(user)
 		return userResponses, nil
+	}
+}
+
+func (u *UserServiceImpl) ChangePassword(ctx context.Context, req *request.ChangePasswordRequest) *exception.ErrorMsg {
+
+	tx, err := u.DB.Begin()
+	if err != nil {
+		return exception.ToErrorMsg(err.Error(), err)
+	}
+	defer helpers.RollbackCommit(tx)
+
+	if findById, err := u.UserRepository.FindByIdUser(ctx, u.DB, req.ID); err != nil {
+		return exception.ToErrorMsg("Data User not found", err)
+	} else {
+		fmt.Println(fmt.Sprintf("%s %s", findById.Password, req.PreviousPassword))
+		if findById.Password != req.PreviousPassword {
+			return exception.ToErrorMsg("The current password does not match.", exception.BadRequest)
+		}
+	}
+
+	if req.Password != req.ConfirmPassword {
+		return exception.ToErrorMsg("Confirm Password not match with New Password", exception.BadRequest)
+	}
+
+	user := &domain.Users{
+		ID:       req.ID,
+		Password: req.Password,
+	}
+
+	if isSuccess, err := u.UserRepository.ChangePassword(ctx, tx, user); err != nil {
+		return exception.ToErrorMsg(err.Error(), err)
+	} else {
+		if isSuccess {
+			return nil
+		} else {
+			return exception.ToErrorMsg(err.Error(), err)
+		}
 	}
 }
