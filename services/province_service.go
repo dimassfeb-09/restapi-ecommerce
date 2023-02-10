@@ -1,4 +1,4 @@
-package province
+package services
 
 import (
 	"context"
@@ -10,7 +10,6 @@ import (
 	"github.com/dimassfeb-09/restapi-ecommerce.git/exception"
 	"github.com/dimassfeb-09/restapi-ecommerce.git/helpers"
 	"github.com/dimassfeb-09/restapi-ecommerce.git/repository"
-	"github.com/dimassfeb-09/restapi-ecommerce.git/usecases/city"
 	"log"
 )
 
@@ -26,11 +25,11 @@ type ProvinceService interface {
 type ProvinceServiceImpl struct {
 	DB                 *sql.DB
 	ProvinceRepository repository.ProvinceRepository
-	CityServices       city.CityServices
+	CityServices       CityServices
 }
 
 func NewProvinceService(DB *sql.DB, provinceRepository repository.ProvinceRepository, cityRepository repository.CityRepository) ProvinceService {
-	return &ProvinceServiceImpl{DB: DB, ProvinceRepository: provinceRepository, CityServices: &city.CityServicesImpl{
+	return &ProvinceServiceImpl{DB: DB, ProvinceRepository: provinceRepository, CityServices: &CityServicesImpl{
 		DB:             DB,
 		CityRepository: cityRepository,
 	}}
@@ -79,7 +78,7 @@ func (p *ProvinceServiceImpl) UpdateProvince(ctx context.Context, req *request.U
 		}
 
 		if findByID, _ := p.ProvinceRepository.FindProvinceById(ctx, p.DB, req.ID); findByID == nil {
-			msg := fmt.Sprintf("City with ID-%s not found.", req.ID)
+			msg := fmt.Sprintf("Province with ID-%d not found.", req.ID)
 			return nil, exception.ToErrorMsg(msg, exception.BadRequest)
 		}
 
@@ -104,7 +103,7 @@ func (p *ProvinceServiceImpl) DeleteProvince(ctx context.Context, provinceId int
 	} else {
 		defer helpers.RollbackCommit(tx)
 		if _, err := p.ProvinceRepository.FindProvinceById(ctx, p.DB, provinceId); err != nil {
-			return exception.ToErrorMsg(err.Error(), exception.ErrorNotFound)
+			return exception.ToErrorMsg(fmt.Sprintf("Province with ID-%d not found.", provinceId), exception.ErrorNotFound)
 		}
 
 		if findCityByProvID, _ := p.CityServices.FindCityByProvinceID(ctx, provinceId); findCityByProvID == true {
@@ -121,10 +120,8 @@ func (p *ProvinceServiceImpl) DeleteProvince(ctx context.Context, provinceId int
 
 func (p *ProvinceServiceImpl) FindProvinceById(ctx context.Context, provinceId int) (*response.ProvinceResponse, *exception.ErrorMsg) {
 	if provinceById, err := p.ProvinceRepository.FindProvinceById(ctx, p.DB, provinceId); err != nil {
-		fmt.Println(err)
-		return nil, exception.ToErrorMsg(err.Error(), exception.InternalServerError)
+		return nil, exception.ToErrorMsg(fmt.Sprintf("Province with ID-%d not found", provinceId), exception.BadRequest)
 	} else {
-		fmt.Println(provinceById)
 		return response.ToProvinceResponse(provinceById), nil
 	}
 }
