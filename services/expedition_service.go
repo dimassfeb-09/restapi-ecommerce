@@ -1,4 +1,4 @@
-package expedition
+package services
 
 import (
 	"context"
@@ -12,8 +12,8 @@ import (
 )
 
 type ExpeditionService interface {
-	AddExpedition(ctx context.Context, request *request.ExpeditionCreateRequest) (bool, *exception.ErrorMsg)
-	UpdateExpedition(ctx context.Context, updateRequest *request.ExpeditionUpdateRequest) (bool, *exception.ErrorMsg)
+	AddExpedition(ctx context.Context, request *request.CreateExpeditionRequest) (bool, *exception.ErrorMsg)
+	UpdateExpedition(ctx context.Context, updateRequest *request.UpdateExpeditionRequest) (bool, *exception.ErrorMsg)
 	DeleteExpedition(ctx context.Context, expID int) (bool, *exception.ErrorMsg)
 	FindAllExpedition(ctx context.Context) ([]*response.ExpeditionResponse, *exception.ErrorMsg)
 	FindExpeditionByID(ctx context.Context, expID int) (*response.ExpeditionResponse, *exception.ErrorMsg)
@@ -28,7 +28,7 @@ func NewExpeditionServiceImpl(DB *sql.DB, expeditionRepository repository.Expedi
 	return &ExpeditionServiceImpl{DB: DB, ExpeditionRepository: expeditionRepository}
 }
 
-func (e *ExpeditionServiceImpl) AddExpedition(ctx context.Context, request *request.ExpeditionCreateRequest) (bool, *exception.ErrorMsg) {
+func (e *ExpeditionServiceImpl) AddExpedition(ctx context.Context, request *request.CreateExpeditionRequest) (bool, *exception.ErrorMsg) {
 	tx, err := e.DB.Begin()
 	if err != nil {
 		return false, exception.ToErrorMsg(err.Error(), err)
@@ -50,7 +50,7 @@ func (e *ExpeditionServiceImpl) AddExpedition(ctx context.Context, request *requ
 	}
 }
 
-func (e *ExpeditionServiceImpl) UpdateExpedition(ctx context.Context, request *request.ExpeditionUpdateRequest) (bool, *exception.ErrorMsg) {
+func (e *ExpeditionServiceImpl) UpdateExpedition(ctx context.Context, request *request.UpdateExpeditionRequest) (bool, *exception.ErrorMsg) {
 	tx, err := e.DB.Begin()
 	if err != nil {
 		return false, exception.ToErrorMsg(err.Error(), err)
@@ -58,17 +58,18 @@ func (e *ExpeditionServiceImpl) UpdateExpedition(ctx context.Context, request *r
 	defer helpers.RollbackCommit(tx)
 
 	expedition := &domain.Expedition{
+		ID:   request.ID,
 		Name: request.Name,
 	}
 
-	if isSuccess, err := e.ExpeditionRepository.UpdateExpedition(ctx, tx, expedition); err != nil {
+	if _, err := e.ExpeditionRepository.FindExpeditionByID(ctx, e.DB, request.ID); err != nil {
+		return false, exception.ToErrorMsg(err.Error(), exception.ErrorNotFound)
+	}
+
+	if _, err := e.ExpeditionRepository.UpdateExpedition(ctx, tx, expedition); err != nil {
 		return false, exception.ToErrorMsg(err.Error(), err)
 	} else {
-		if isSuccess {
-			return true, nil
-		} else {
-			return false, exception.ToErrorMsg(err.Error(), err)
-		}
+		return true, nil
 	}
 }
 
@@ -91,8 +92,11 @@ func (e *ExpeditionServiceImpl) DeleteExpedition(ctx context.Context, expID int)
 }
 
 func (e *ExpeditionServiceImpl) FindAllExpedition(ctx context.Context) ([]*response.ExpeditionResponse, *exception.ErrorMsg) {
-	//TODO implement me
-	panic("implement me")
+	if results, err := e.ExpeditionRepository.FindAllExpedition(ctx, e.DB); err != nil {
+		return nil, exception.ToErrorMsg(err.Error(), err)
+	} else {
+		return response.ToExpeditionResponses(results), nil
+	}
 }
 
 func (e *ExpeditionServiceImpl) FindExpeditionByID(ctx context.Context, expID int) (*response.ExpeditionResponse, *exception.ErrorMsg) {
