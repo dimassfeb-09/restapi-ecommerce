@@ -11,6 +11,7 @@ import (
 var (
 	ErrorNotFound       error = errors.New("Not Found")
 	BadRequest          error = errors.New("Bad Request")
+	Unauthorized        error = errors.New("Unathorized")
 	InternalServerError error = errors.New("Internal Server Error")
 )
 
@@ -42,6 +43,9 @@ func ErrorHandler(c *gin.Context, err *ErrorMsg) {
 		break
 	case BadRequest:
 		errHandler = ToErrorResponse(http.StatusBadRequest, BadRequest.Error(), err.Msg)
+		break
+	case Unauthorized:
+		errHandler = ToErrorResponse(http.StatusUnauthorized, Unauthorized.Error(), err.Msg)
 		break
 	default:
 		errHandler = ToErrorResponse(http.StatusInternalServerError, InternalServerError.Error(), err.Msg)
