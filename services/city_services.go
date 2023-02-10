@@ -1,4 +1,4 @@
-package city
+package services
 
 import (
 	"context"
@@ -10,7 +10,6 @@ import (
 	"github.com/dimassfeb-09/restapi-ecommerce.git/exception"
 	"github.com/dimassfeb-09/restapi-ecommerce.git/helpers"
 	"github.com/dimassfeb-09/restapi-ecommerce.git/repository"
-	"github.com/dimassfeb-09/restapi-ecommerce.git/usecases/province"
 )
 
 type CityServices interface {
@@ -25,11 +24,11 @@ type CityServices interface {
 type CityServicesImpl struct {
 	DB              *sql.DB
 	CityRepository  repository.CityRepository
-	ProvinceService province.ProvinceService
+	ProvinceService ProvinceService
 }
 
 func NewCityServicesImpl(DB *sql.DB, cityRepository repository.CityRepository, provinceRepository repository.ProvinceRepository) CityServices {
-	return &CityServicesImpl{DB: DB, CityRepository: cityRepository, ProvinceService: &province.ProvinceServiceImpl{
+	return &CityServicesImpl{DB: DB, CityRepository: cityRepository, ProvinceService: &ProvinceServiceImpl{
 		DB:                 DB,
 		ProvinceRepository: provinceRepository,
 	}}
@@ -74,6 +73,13 @@ func (c *CityServicesImpl) UpdateCity(ctx context.Context, updateReq *request.Up
 		return nil, exception.ToErrorMsg("Min length name 3 character, Max 20 character.", exception.BadRequest)
 	}
 
+	fmt.Println(updateReq.ProvinceID)
+
+	if findProvincebyId, _ := c.ProvinceService.FindProvinceById(ctx, updateReq.ProvinceID); findProvincebyId == nil {
+		msg := fmt.Sprintf("province_id with ID-%d Not Found.", updateReq.ProvinceID)
+		return nil, exception.ToErrorMsg(msg, exception.BadRequest)
+	}
+
 	if _, err := c.CityRepository.FindCityById(ctx, c.DB, updateReq.ID); err != nil {
 		msg := fmt.Sprintf("Data with ID-%d Not Found", updateReq.ID)
 		return nil, exception.ToErrorMsg(msg, exception.BadRequest)
@@ -88,11 +94,6 @@ func (c *CityServicesImpl) UpdateCity(ctx context.Context, updateReq *request.Up
 			return nil, exception.ToErrorMsg(msg, exception.BadRequest)
 		}
 	}
-
-	//if _, errProv := c.ProvinceService.FindProvinceById(ctx, updateReq.ProvinceID); errProv != nil {
-	//	msg := fmt.Sprintf("province_id with ID-%d Not Found.", updateReq.ProvinceID)
-	//	return nil, exception.ToErrorMsg(msg, exception.BadRequest)
-	//}
 
 	city := &domain.City{
 		ID:         updateReq.ID,

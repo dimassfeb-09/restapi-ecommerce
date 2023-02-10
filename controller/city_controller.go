@@ -75,7 +75,7 @@ func (cityC *CityControllerImpl) FindByIdCity(c *gin.Context) {
 		exception.ErrorHandler(c, msg)
 		return
 	} else {
-		if city, errMsg := cityC.CityService.FindByIdCity(c.Request.Context(), id); errMsg != nil {
+		if city, errMsg := cityC.CityService.FindCityByID(c.Request.Context(), id); errMsg != nil {
 			msg := exception.ToErrorMsg(errMsg.Msg, errMsg.Error)
 			exception.ErrorHandler(c, msg)
 			return
